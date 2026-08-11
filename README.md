@@ -19,23 +19,25 @@ The extension never implements a second summarizer. It is a transport adapter fr
 
 ## Install
 
-For now, git clone + local install:
+From npm (recommended):
 
 ```bash
-pi install npm:relace-compact-pi
-# or
 omp plugin install npm:relace-compact-pi
+# or
+pi install npm:relace-compact-pi
 ```
 
-For local development:
+For local development, link a checkout instead of installing from npm:
 
 ```bash
 git clone https://github.com/thejorgg/relace-compact-pi relace-compact-pi
 cd relace-compact-pi
-omp plugin install .
+omp plugin link .
 # or
-pi plugin install .
+pi install .
 ```
+
+> Prefer the npm install for day-to-day use. A linked checkout can make OMP resolve host packages through bun's install cache and fail to load `pi_natives`.
 
 ## Configure target and thresholds through the command
 

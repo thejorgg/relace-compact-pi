@@ -9,15 +9,6 @@ export interface DynamicSettings {
 	get(key: string): unknown;
 }
 
-export interface OmpPluginManager {
-	setPluginSetting(name: string, key: string, value: unknown): Promise<void>;
-}
-
-export interface OmpPluginModule {
-	getPluginSettings(name: string, cwd: string): Promise<SettingsRecord>;
-	PluginManager: new (cwd?: string) => OmpPluginManager;
-}
-
 export interface RelaceMessage {
 	role: "user" | "assistant" | "developer" | "tool" | "system";
 	content: string | unknown[];

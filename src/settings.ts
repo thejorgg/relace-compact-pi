@@ -1,9 +1,10 @@
+import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type {
 	DynamicSettings,
 	HostKind,
-	OmpPluginModule,
 	RelaceConfig,
 	SettingsRecord,
 } from "./types.js";
@@ -21,8 +22,6 @@ import {
 export const PACKAGE_NAME = "relace-compact-pi";
 export const RELACE_ENDPOINT =
 	"https://compact.endpoint.relace.run/v1/code/compact";
-export const OMP_PLUGINS_MODULE =
-	"@oh-my-pi/pi-coding-agent/extensibility/plugins";
 export const DEFAULT_IDLE_SECONDS = 300;
 export const DEFAULT_TARGET_PERCENT = 33;
 export const DEFAULT_PI_THRESHOLD = 66;
@@ -107,20 +106,71 @@ export function findOmpSettings(pi: unknown): DynamicSettings | undefined {
 	return candidate as unknown as DynamicSettings;
 }
 
-export async function loadOmpPluginModule(): Promise<OmpPluginModule> {
-	const loaded: unknown = await import(OMP_PLUGINS_MODULE);
-	if (
-		!isRecord(loaded) ||
-		typeof loaded.getPluginSettings !== "function" ||
-		typeof loaded.PluginManager !== "function"
-	) {
-		throw new Error("OMP plugin settings API is unavailable.");
+/**
+ * Resolve ~/.omp/plugins (or the XDG data equivalent) without importing
+ * `@oh-my-pi/*`. Dynamic imports of those packages from a linked extension
+ * resolve through bun's install cache and fail to load `pi_natives`.
+ */
+export function ompPluginsDir(): string {
+	const home = process.env.HOME || os.homedir();
+	const legacy = path.join(home, ".omp", "plugins");
+	if (fs.existsSync(legacy)) return legacy;
+	const xdgData =
+		process.env.XDG_DATA_HOME || path.join(home, ".local", "share");
+	return path.join(xdgData, "omp", "plugins");
+}
+
+function ompPluginsLockfile(): string {
+	return path.join(ompPluginsDir(), "omp-plugins.lock.json");
+}
+
+function projectPluginOverrides(cwd: string): SettingsRecord {
+	for (const relative of [".omp/plugin-overrides.json", ".pi/plugin-overrides.json"]) {
+		const values = readJsonObject(path.join(cwd, relative));
+		if (Object.keys(values).length > 0) return values;
 	}
-	return {
-		getPluginSettings:
-			loaded.getPluginSettings as OmpPluginModule["getPluginSettings"],
-		PluginManager: loaded.PluginManager as OmpPluginModule["PluginManager"],
-	};
+	return {};
+}
+
+function pluginSettingsFromRecord(
+	settings: unknown,
+	pluginName: string,
+): SettingsRecord {
+	if (!isRecord(settings)) return {};
+	const plugin = settings[pluginName];
+	return isRecord(plugin) ? { ...plugin } : {};
+}
+
+export function getOmpPluginSettings(
+	pluginName: string,
+	cwd: string,
+): SettingsRecord {
+	const lock = readJsonObject(ompPluginsLockfile());
+	const global = pluginSettingsFromRecord(lock.settings, pluginName);
+	const overrides = projectPluginOverrides(cwd);
+	const project = pluginSettingsFromRecord(overrides.settings, pluginName);
+	return { ...global, ...project };
+}
+
+export function setOmpPluginSetting(
+	pluginName: string,
+	key: string,
+	value: unknown,
+): void {
+	const lockPath = ompPluginsLockfile();
+	const lock = readJsonObject(lockPath);
+	if (!isRecord(lock.plugins)) lock.plugins = {};
+	if (!isRecord(lock.settings)) lock.settings = {};
+	const settings = lock.settings as SettingsRecord;
+	const current = settings[pluginName];
+	const pluginSettings = isRecord(current) ? { ...current } : {};
+	pluginSettings[key] = value;
+	settings[pluginName] = pluginSettings;
+	fs.mkdirSync(path.dirname(lockPath), { recursive: true });
+	const temporaryPath = `${lockPath}.${process.pid}.tmp`;
+	// Match OMP's lockfile formatting (2-space indent).
+	fs.writeFileSync(temporaryPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+	fs.renameSync(temporaryPath, lockPath);
 }
 
 export class SettingsStore {
@@ -129,7 +179,6 @@ export class SettingsStore {
 	#cacheKey = "";
 	#cachedConfig: RelaceConfig | undefined;
 	#enabledOverride: boolean | undefined;
-	#ompModule: Promise<OmpPluginModule> | undefined;
 
 	constructor(host: HostKind, ompSettings: DynamicSettings | undefined) {
 		this.host = host;
@@ -143,10 +192,7 @@ export class SettingsStore {
 			return this.#cachedConfig;
 		let values: SettingsRecord;
 		if (this.host === "omp") {
-			values = await (await this.#getOmpModule()).getPluginSettings(
-				PACKAGE_NAME,
-				ctx.cwd,
-			);
+			values = getOmpPluginSettings(PACKAGE_NAME, ctx.cwd);
 			if (this.#ompSettings) {
 				const ompIdleEnabled = this.#ompSettings.get("compaction.idleEnabled");
 				const ompIdleTimeout = this.#ompSettings.get(
@@ -189,14 +235,9 @@ export class SettingsStore {
 		await this.setSetting(cwd, "relace.enabled", enabled);
 	}
 
-	async setSetting(cwd: string, key: string, value: unknown): Promise<void> {
+	async setSetting(_cwd: string, key: string, value: unknown): Promise<void> {
 		if (this.host === "omp") {
-			const module = await this.#getOmpModule();
-			await new module.PluginManager(cwd).setPluginSetting(
-				PACKAGE_NAME,
-				key,
-				value,
-			);
+			setOmpPluginSetting(PACKAGE_NAME, key, value);
 		} else {
 			const agentDir =
 				process.env.PI_CODING_AGENT_DIR ??
@@ -207,10 +248,5 @@ export class SettingsStore {
 			writeJsonObject(settingsPath, values);
 		}
 		this.#cachedConfig = undefined;
-	}
-
-	#getOmpModule(): Promise<OmpPluginModule> {
-		this.#ompModule ??= loadOmpPluginModule();
-		return this.#ompModule;
 	}
 }

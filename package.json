@@ -1,7 +1,7 @@
 {
 	"type": "module",
 	"name": "relace-compact-pi",
-	"version": "0.1.2",
+	"version": "0.1.3",
 	"description": "Relace Compact routing for OMP and pi-agent",
 	"homepage": "https://omp.sh",
 	"author": "Antigravity",
@@ -31,9 +31,9 @@
 		"typescript": "^5.4.5"
 	},
 	"peerDependencies": {
-		"@earendil-works/pi-coding-agent": "^0.80.6",
-		"@earendil-works/pi-agent-core": "^0.80.6",
-		"@earendil-works/pi-ai": "^0.80.6"
+		"@earendil-works/pi-coding-agent": "^0.74.0 || ^0.75.0 || ^0.78.0 || ^0.79.0 || ^0.80.0 || ^0.84.0",
+		"@earendil-works/pi-agent-core": "^0.74.0 || ^0.75.0 || ^0.78.0 || ^0.79.0 || ^0.80.0 || ^0.84.0",
+		"@earendil-works/pi-ai": "^0.74.0 || ^0.75.0 || ^0.78.0 || ^0.79.0 || ^0.80.0 || ^0.84.0"
 	},
 	"engines": {
 		"node": ">=22.19.0",
@@ -143,5 +143,16 @@
 		"src",
 		"README.md",
 		"LICENSE"
-	]
+	],
+	"peerDependenciesMeta": {
+		"@earendil-works/pi-coding-agent": {
+			"optional": true
+		},
+		"@earendil-works/pi-agent-core": {
+			"optional": true
+		},
+		"@earendil-works/pi-ai": {
+			"optional": true
+		}
+	}
 }
