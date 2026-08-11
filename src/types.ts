@@ -1,4 +1,7 @@
 import type { Message } from "@earendil-works/pi-ai";
+import type { ContextEvent } from "@earendil-works/pi-coding-agent";
+
+export type AgentMessage = ContextEvent["messages"][number];
 
 export type HostKind = "omp" | "pi";
 export type PiThresholdType = "percentage" | "tokens";

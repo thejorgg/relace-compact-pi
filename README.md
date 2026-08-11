@@ -37,7 +37,7 @@ omp plugin link .
 pi install .
 ```
 
-> Prefer the npm install for day-to-day use. A linked checkout can make OMP resolve host packages through bun's install cache and fail to load `pi_natives`.
+> Use the published package for normal installs; link a checkout only while developing the plugin.
 
 ## Configure target and thresholds through the command
 

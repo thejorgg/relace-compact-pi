@@ -107,27 +107,120 @@ export function findOmpSettings(pi: unknown): DynamicSettings | undefined {
 }
 
 /**
- * Resolve ~/.omp/plugins (or the XDG data equivalent) without importing
+ * Resolve the OMP 17.2.12 plugins directory without importing
  * `@oh-my-pi/*`. Dynamic imports of those packages from a linked extension
  * resolve through bun's install cache and fail to load `pi_natives`.
+ *
+ * Mirrors OMP's resolver: config root is `~/$PI_CONFIG_DIR` (default `.omp`),
+ * a selected profile appends `profiles/<profile>`, and on Linux/macOS the
+ * XDG data root (`$XDG_DATA_HOME/omp[/profiles/<profile>]`) is used only when
+ * that exact root exists and the effective agent dir is at its default
+ * location. A named profile ignores `PI_CODING_AGENT_DIR` entirely. For the
+ * default profile, `PI_CODING_AGENT_DIR` suppresses XDG only when it is a
+ * genuine custom override — neither the default legacy agent dir
+ * (`<configRoot>/agent`) nor a valid PI_PROFILE's derived legacy agent dir
+ * (`<configRoot>/profiles/<pi-profile>/agent`). Invalid profile environment
+ * input falls back to the default profile rather than throwing. The plugins
+ * dir is `<chosen-root>/plugins`.
  */
+const OMP_PROFILE_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/;
+const OMP_RESERVED_NAMES = /^(?:CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])(?:\..*)?$/i;
+
+function normalizeProfile(raw: string | undefined): string | undefined {
+	if (raw === undefined) return undefined;
+	const trimmed = raw.trim();
+	if (trimmed.length === 0 || trimmed === "default") return undefined;
+	if (
+		trimmed === "." ||
+		trimmed === ".." ||
+		trimmed.endsWith(".") ||
+		!OMP_PROFILE_PATTERN.test(trimmed) ||
+		OMP_RESERVED_NAMES.test(trimmed)
+	) {
+		return undefined;
+	}
+	return trimmed;
+}
+
+function resolveOmpProfile(): string | undefined {
+	const raw =
+		process.env.OMP_PROFILE !== undefined
+			? process.env.OMP_PROFILE
+			: process.env.PI_PROFILE;
+	return normalizeProfile(raw);
+}
+
+function isGenuineAgentOverride(configRoot: string): boolean {
+	const rawAgentDir = process.env.PI_CODING_AGENT_DIR;
+	if (rawAgentDir === undefined) return false;
+	const agentDir = path.resolve(rawAgentDir);
+	if (agentDir === path.resolve(path.join(configRoot, "agent"))) {
+		return false;
+	}
+	const piProfile = normalizeProfile(process.env.PI_PROFILE);
+	if (piProfile !== undefined) {
+		const derivedAgentDir = path.resolve(
+			path.join(configRoot, "profiles", piProfile, "agent"),
+		);
+		if (agentDir === derivedAgentDir) return false;
+	}
+	return true;
+}
+
+function ompDataRoot(configRoot: string, profile: string | undefined): string {
+	if (process.platform !== "linux" && process.platform !== "darwin") {
+		return configRoot;
+	}
+	// OMP only consults XDG when the effective agent dir is at its default
+	// location or is profile-derived. A named profile ignores
+	// PI_CODING_AGENT_DIR entirely, so the default-agent condition always
+	// holds. For the default profile, PI_CODING_AGENT_DIR suppresses XDG only
+	// when it is a genuine custom override — neither the default legacy agent
+	// dir (`<configRoot>/agent`) nor a valid PI_PROFILE's derived legacy agent
+	// dir (`<configRoot>/profiles/<pi-profile>/agent`), the latter recognized
+	// even when OMP_PROFILE explicitly selected default.
+	if (profile === undefined && isGenuineAgentOverride(configRoot)) {
+		return configRoot;
+	}
+	const xdgDataHome = process.env.XDG_DATA_HOME;
+	if (!xdgDataHome) return configRoot;
+	const xdgOmp = path.join(xdgDataHome, "omp");
+	const candidate = profile ? path.join(xdgOmp, "profiles", profile) : xdgOmp;
+	return fs.existsSync(candidate) ? candidate : configRoot;
+}
+
 export function ompPluginsDir(): string {
-	const home = process.env.HOME || os.homedir();
-	const legacy = path.join(home, ".omp", "plugins");
-	if (fs.existsSync(legacy)) return legacy;
-	const xdgData =
-		process.env.XDG_DATA_HOME || path.join(home, ".local", "share");
-	return path.join(xdgData, "omp", "plugins");
+	const profile = resolveOmpProfile();
+	const base = path.join(os.homedir(), process.env.PI_CONFIG_DIR || ".omp");
+	const configRoot = profile ? path.join(base, "profiles", profile) : base;
+	const dataRoot = ompDataRoot(configRoot, profile);
+	return path.join(dataRoot, "plugins");
 }
 
 function ompPluginsLockfile(): string {
 	return path.join(ompPluginsDir(), "omp-plugins.lock.json");
 }
 
+const PROJECT_OVERRIDE_DIRS = [".omp", ".claude", ".codex", ".gemini"];
+
 function projectPluginOverrides(cwd: string): SettingsRecord {
-	for (const relative of [".omp/plugin-overrides.json", ".pi/plugin-overrides.json"]) {
-		const values = readJsonObject(path.join(cwd, relative));
-		if (Object.keys(values).length > 0) return values;
+	for (const dir of PROJECT_OVERRIDE_DIRS) {
+		const candidatePath = path.join(cwd, dir, "plugin-overrides.json");
+		let text: string;
+		try {
+			text = fs.readFileSync(candidatePath, "utf8");
+		} catch {
+			// Missing, unreadable, or a directory: fall through to next candidate.
+			continue;
+		}
+		let parsed: unknown;
+		try {
+			parsed = JSON.parse(text);
+		} catch {
+			continue;
+		}
+		if (!isRecord(parsed)) return {};
+		return parsed;
 	}
 	return {};
 }

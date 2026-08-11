@@ -1,6 +1,5 @@
-import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { Api, Message, Model } from "@earendil-works/pi-ai";
-import type { RelaceConfig, RelaceMessage } from "./types.js";
+import type { AgentMessage, RelaceConfig, RelaceMessage } from "./types.js";
 import { isRecord } from "./utils.js";
 
 export function toRelaceMessages(messages: AgentMessage[]): RelaceMessage[] {

@@ -1,4 +1,3 @@
-import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { Api, Message, Model } from "@earendil-works/pi-ai";
 import type {
 	ContextEvent,
@@ -16,6 +15,7 @@ import {
 } from "./api.js";
 import { findOmpSettings, SettingsStore } from "./settings.js";
 import type {
+	AgentMessage,
 	CompactCallbacks,
 	NoticeLevel,
 	RelaceConfig,
