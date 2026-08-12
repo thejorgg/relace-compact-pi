@@ -10,6 +10,7 @@ import type {
 import {
 	callRelace,
 	RELACE_KEYS_URL,
+	RELACE_LOGIN_URL,
 	summaryFromRelace,
 	targetTokensForModel,
 	toAgentMessages,
@@ -206,7 +207,7 @@ export default function relaceCompactExtension(pi: ExtensionAPI): void {
 		if (!config.apiKey) {
 			eventError(
 				ctx,
-				`Relace API key is not configured. Create one at ${RELACE_KEYS_URL}.`,
+				`Relace API key is not configured. Log in at ${RELACE_LOGIN_URL} to get one.`,
 			);
 			return { cancel: true };
 		}
@@ -325,7 +326,7 @@ export default function relaceCompactExtension(pi: ExtensionAPI): void {
 						? "OMP handoff compact hook → Relace"
 						: "OMP native (Relace routing inactive)";
 		const lines = [
-			"Relace Compact",
+			`API key: ${config.apiKey ? "configured" : `missing (log in at ${RELACE_LOGIN_URL})`}`,
 			`Host: ${settings.host === "omp" ? "OMP" : "pi-agent"}`,
 			`Enabled: ${config.enabled ? "yes" : "no"}`,
 			`API key: ${config.apiKey ? "configured" : `missing (create at ${RELACE_KEYS_URL})`}`,
@@ -372,7 +373,7 @@ export default function relaceCompactExtension(pi: ExtensionAPI): void {
 		if (!config.apiKey) {
 			commandOutput(
 				ctx,
-				`Relace API key is not configured. Create one at ${RELACE_KEYS_URL}.`,
+				`Relace API key is not configured. Log in at ${RELACE_LOGIN_URL} to get one.`,
 				"warning",
 			);
 			return;

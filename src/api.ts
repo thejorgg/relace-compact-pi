@@ -4,6 +4,8 @@ import { isRecord } from "./utils.js";
 
 /** Relace dashboard where users create or manage an API key. */
 export const RELACE_KEYS_URL = "https://app.relace.ai/settings/api-keys";
+/** Relace login/signup page — where users without a key start. */
+export const RELACE_LOGIN_URL = "https://app.relace.ai";
 
 export function toRelaceMessages(messages: AgentMessage[]): RelaceMessage[] {
 	const converted: RelaceMessage[] = [];
@@ -167,7 +169,7 @@ export async function callRelace(
 		const detail = await response.text();
 		let message = `Relace API error ${response.status}: ${detail}`;
 		if (response.status === 401 || response.status === 403) {
-			message += ` Check or create your API key at ${RELACE_KEYS_URL}.`;
+			message += ` Check your API key at ${RELACE_KEYS_URL}.`;
 		}
 		throw new Error(message);
 	}
