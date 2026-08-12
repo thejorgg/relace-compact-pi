@@ -9,6 +9,7 @@ import type {
 
 import {
 	callRelace,
+	RELACE_KEYS_URL,
 	summaryFromRelace,
 	targetTokensForModel,
 	toAgentMessages,
@@ -203,7 +204,10 @@ export default function relaceCompactExtension(pi: ExtensionAPI): void {
 		const config = await settings.getConfig(ctx);
 		if (!config.enabled || !supportsRoute(settings)) return;
 		if (!config.apiKey) {
-			eventError(ctx, "Relace API key is not configured.");
+			eventError(
+				ctx,
+				`Relace API key is not configured. Create one at ${RELACE_KEYS_URL}.`,
+			);
 			return { cancel: true };
 		}
 		const sourceMessages = event.preparation.messagesToSummarize.concat(
@@ -324,7 +328,7 @@ export default function relaceCompactExtension(pi: ExtensionAPI): void {
 			"Relace Compact",
 			`Host: ${settings.host === "omp" ? "OMP" : "pi-agent"}`,
 			`Enabled: ${config.enabled ? "yes" : "no"}`,
-			`API key: ${config.apiKey ? "configured" : "missing"}`,
+			`API key: ${config.apiKey ? "configured" : `missing (create at ${RELACE_KEYS_URL})`}`,
 			`Route: ${route}`,
 			`Idle: ${idleSeconds}s`,
 			`Target: ${config.targetPercent}% (${targetTokensForModel(config, ctx.model).toLocaleString()} tokens)`,
@@ -366,7 +370,11 @@ export default function relaceCompactExtension(pi: ExtensionAPI): void {
 			return;
 		}
 		if (!config.apiKey) {
-			commandOutput(ctx, "Relace API key is not configured.", "warning");
+			commandOutput(
+				ctx,
+				`Relace API key is not configured. Create one at ${RELACE_KEYS_URL}.`,
+				"warning",
+			);
 			return;
 		}
 		commandOutput(ctx, "Starting Relace compaction…", "info");

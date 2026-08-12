@@ -2,6 +2,9 @@ import type { Api, Message, Model } from "@earendil-works/pi-ai";
 import type { AgentMessage, RelaceConfig, RelaceMessage } from "./types.js";
 import { isRecord } from "./utils.js";
 
+/** Relace dashboard where users create or manage an API key. */
+export const RELACE_KEYS_URL = "https://app.relace.ai/settings/api-keys";
+
 export function toRelaceMessages(messages: AgentMessage[]): RelaceMessage[] {
 	const converted: RelaceMessage[] = [];
 	for (const message of messages) {
@@ -160,10 +163,14 @@ export async function callRelace(
 		}),
 		signal,
 	});
-	if (!response.ok)
-		throw new Error(
-			`Relace API error ${response.status}: ${await response.text()}`,
-		);
+	if (!response.ok) {
+		const detail = await response.text();
+		let message = `Relace API error ${response.status}: ${detail}`;
+		if (response.status === 401 || response.status === 403) {
+			message += ` Check or create your API key at ${RELACE_KEYS_URL}.`;
+		}
+		throw new Error(message);
+	}
 	const body: unknown = await response.json();
 	return parseRelaceMessages(body);
 }

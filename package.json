@@ -70,7 +70,7 @@
 			},
 			"relace.idleTimeoutSeconds": {
 				"type": "number",
-				"default": 300,
+				"default": 600,
 				"min": 0,
 				"description": "Global idle compaction delay in seconds; zero disables idle compaction."
 			},
@@ -113,7 +113,7 @@
 			},
 			"relace.idleTimeoutSeconds": {
 				"type": "number",
-				"default": 300,
+				"default": 600,
 				"min": 0,
 				"description": "Global idle compaction delay in seconds; zero disables idle compaction."
 			},
