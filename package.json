@@ -58,7 +58,7 @@
 			},
 			"relace.endpoint": {
 				"type": "string",
-				"default": "https://compact.endpoint.relace.run/v1/code/compact",
+				"default": "https://models.relace.ai/v1/code/compact",
 				"description": "Relace Compact API endpoint."
 			},
 			"relace.targetPercent": {
@@ -101,7 +101,7 @@
 			},
 			"relace.endpoint": {
 				"type": "string",
-				"default": "https://compact.endpoint.relace.run/v1/code/compact",
+				"default": "https://models.relace.ai/v1/code/compact",
 				"description": "Relace Compact API endpoint."
 			},
 			"relace.targetPercent": {

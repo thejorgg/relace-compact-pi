@@ -138,7 +138,7 @@ Pi-agent reads global settings from `$HOME/.pi/agent/settings.json` (or `$PI_COD
   "relace": {
     "enabled": true,
     "apiKey": "",
-    "endpoint": "https://compact.endpoint.relace.run/v1/code/compact",
+    "endpoint": "https://models.relace.ai/v1/code/compact",
     "targetPercent": 33,
     "idleTimeoutSeconds": 600,
     "idleModelOverrides": "{\"openai/gpt*\":1800,\"anthropic/claude*\":300}",
