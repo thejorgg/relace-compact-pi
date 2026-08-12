@@ -1,7 +1,7 @@
 {
 	"type": "module",
 	"name": "relace-compact-pi",
-	"version": "0.1.5",
+	"version": "0.1.6",
 	"description": "Relace Compact routing for OMP and pi-agent",
 	"homepage": "https://omp.sh",
 	"author": "Antigravity",
