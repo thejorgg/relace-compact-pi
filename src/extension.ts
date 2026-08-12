@@ -28,6 +28,7 @@ function idleTimeoutForModel(
 	config: RelaceConfig,
 	model: Model<Api> | undefined,
 ): number {
+	if (config.idleTimeoutSeconds === 0) return 0;
 	if (!model) return config.idleTimeoutSeconds;
 	const fullName = `${model.provider}/${model.id}`;
 	for (const [pattern, seconds] of config.idleModelOverrides) {

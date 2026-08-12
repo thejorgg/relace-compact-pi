@@ -22,7 +22,7 @@ import {
 export const PACKAGE_NAME = "relace-compact-pi";
 export const RELACE_ENDPOINT =
 	"https://compact.endpoint.relace.run/v1/code/compact";
-export const DEFAULT_IDLE_SECONDS = 300;
+export const DEFAULT_IDLE_SECONDS = 600;
 export const DEFAULT_TARGET_PERCENT = 33;
 export const DEFAULT_PI_THRESHOLD = 66;
 
