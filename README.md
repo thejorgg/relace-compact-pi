@@ -19,13 +19,26 @@ The extension never implements a second summarizer. It is a transport adapter fr
 
 ## Install
 
-From npm (recommended):
+**pi-agent** — listed on the [Pi package marketplace](https://pi.dev/packages/relace-compact-pi) (npm-backed):
+
+```bash
+pi install npm:relace-compact-pi
+```
+
+**OMP** — install the npm package:
 
 ```bash
 omp plugin install npm:relace-compact-pi
-# or
-pi install npm:relace-compact-pi
 ```
+
+### Update
+
+```bash
+pi update npm:relace-compact-pi                 # pi-agent: update this package
+omp plugin install npm:relace-compact-pi@latest # OMP: pull the latest npm release
+```
+
+> The plugin is on the Pi package marketplace but **not** in an OMP marketplace, so OMP updates pull from npm. `omp update --plugins` and `omp plugin upgrade` only cover OMP-marketplace plugins and won't detect a new npm release of this package.
 
 For local development, link a checkout instead of installing from npm:
 
@@ -127,7 +140,7 @@ Pi-agent reads global settings from `$HOME/.pi/agent/settings.json` (or `$PI_COD
     "apiKey": "",
     "endpoint": "https://compact.endpoint.relace.run/v1/code/compact",
     "targetPercent": 33,
-    "idleTimeoutSeconds": 300,
+    "idleTimeoutSeconds": 600,
     "idleModelOverrides": "{\"openai/gpt*\":1800,\"anthropic/claude*\":300}",
     "pi": {
       "thresholdType": "percentage",
@@ -145,7 +158,7 @@ Pi-agent reads global settings from `$HOME/.pi/agent/settings.json` (or `$PI_COD
 | `relace.apiKey` | empty | Relace API key. `RELACE_API_KEY` takes precedence. |
 | `relace.endpoint` | production endpoint | Relace Compact endpoint. |
 | `relace.targetPercent` | `33` | Target percentage of the active model context. |
-| `relace.idleTimeoutSeconds` | `300` | Global idle compaction delay; `0` disables it. |
+| `relace.idleTimeoutSeconds` | `600` | Global idle compaction delay; `0` disables it. |
 | `relace.idleModelOverrides` | `{}` | JSON string mapping model globs to idle seconds. |
 | `relace.pi.thresholdType` | `percentage` | Pi threshold interpretation: `percentage` or `tokens`. |
 | `relace.pi.threshold` | `66` | Pi compaction threshold. |
