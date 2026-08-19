@@ -5,6 +5,7 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type {
 	DynamicSettings,
 	HostKind,
+	IdleMode,
 	RelaceConfig,
 	SettingsRecord,
 } from "./types.js";
@@ -22,6 +23,7 @@ import {
 export const PACKAGE_NAME = "relace-compact-pi";
 export const RELACE_ENDPOINT = "https://models.relace.ai/v1/code/compact";
 export const DEFAULT_IDLE_SECONDS = 600;
+export const DEFAULT_IDLE_MODE: IdleMode = "beforeNextTurn";
 export const DEFAULT_TARGET_PERCENT = 33;
 export const DEFAULT_PI_THRESHOLD = 66;
 
@@ -35,6 +37,10 @@ export function endpointSetting(value: unknown): string {
 	} catch {
 		return RELACE_ENDPOINT;
 	}
+}
+
+export function idleModeSetting(value: unknown): IdleMode {
+	return value === "backgroundAuto" ? "backgroundAuto" : DEFAULT_IDLE_MODE;
 }
 
 export function parseIdleOverrides(
@@ -86,6 +92,7 @@ export function buildConfig(
 			getPathValue(values, "relace.idleTimeoutSeconds"),
 			DEFAULT_IDLE_SECONDS,
 		),
+		idleMode: idleModeSetting(getPathValue(values, "relace.idleMode")),
 		idleModelOverrides: parseIdleOverrides(
 			getPathValue(values, "relace.idleModelOverrides"),
 		),

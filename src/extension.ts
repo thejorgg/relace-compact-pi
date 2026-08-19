@@ -1,5 +1,6 @@
 import type { Api, Message, Model } from "@earendil-works/pi-ai";
 import type {
+	BeforeAgentStartEvent,
 	ContextEvent,
 	ExtensionAPI,
 	ExtensionCommandContext,
@@ -167,6 +168,7 @@ export default function relaceCompactExtension(pi: ExtensionAPI): void {
 				replacement: undefined,
 				compactions: 0,
 				idleTimer: undefined,
+				idleCompactDue: false,
 				compactPending: false,
 			};
 			sessions.set(sessionId, state);
@@ -174,25 +176,32 @@ export default function relaceCompactExtension(pi: ExtensionAPI): void {
 		return state;
 	};
 
-	const requestCompact = (ctx: ExtensionContext, announce: boolean): void => {
+	const requestCompact = (
+		ctx: ExtensionContext,
+		announce: boolean,
+	): Promise<void> => {
 		const state = sessionState(ctx);
-		if (state.compactPending) return;
+		if (state.compactPending) return Promise.resolve();
 		state.compactPending = true;
 		clearTimer(state);
-		invokeCompact(ctx, {
-			onComplete: () => {
-				state.compactPending = false;
-				if (announce && ctx.hasUI)
-					ctx.ui.notify("Relace compaction complete.", "info");
-			},
-			onError: (error) => {
-				state.compactPending = false;
-				const benign =
-					error.message.includes("Already compacted") ||
-					error.message.includes("Nothing to compact");
-				if (announce || !benign)
-					eventError(ctx, `Relace compaction failed: ${error.message}`);
-			},
+		return new Promise<void>((resolve) => {
+			invokeCompact(ctx, {
+				onComplete: () => {
+					state.compactPending = false;
+					if (announce && ctx.hasUI)
+						ctx.ui.notify("Relace compaction complete.", "info");
+					resolve();
+				},
+				onError: (error) => {
+					state.compactPending = false;
+					const benign =
+						error.message.includes("Already compacted") ||
+						error.message.includes("Nothing to compact");
+					if (announce || !benign)
+						eventError(ctx, `Relace compaction failed: ${error.message}`);
+					resolve();
+				},
+			});
 		});
 	};
 
@@ -202,6 +211,9 @@ export default function relaceCompactExtension(pi: ExtensionAPI): void {
 	) => {
 		const state = sessionState(ctx);
 		clearTimer(state);
+		// Any compaction (manual, threshold, overflow, or this one) supersedes
+		// a pending beforeNextTurn idle compaction.
+		state.idleCompactDue = false;
 		const config = await settings.getConfig(ctx);
 		if (!config.enabled || !supportsRoute(settings)) return;
 		if (!config.apiKey) {
@@ -305,10 +317,37 @@ export default function relaceCompactExtension(pi: ExtensionAPI): void {
 				ctx.isIdle() &&
 				!ctx.hasPendingMessages() &&
 				!state.compactPending
-			)
-				requestCompact(ctx, false);
+			) {
+				if (config.idleMode === "beforeNextTurn") {
+					// Don't spend Relace tokens while the user might just be
+					// reading the output: defer compaction until a new message
+					// is actually submitted.
+					state.idleCompactDue = true;
+				} else {
+					requestCompact(ctx, false);
+				}
+			}
 		}, idleSeconds * 1000);
 		unrefTimer(state.idleTimer);
+	};
+
+	const onBeforeAgentStart = async (
+		_event: BeforeAgentStartEvent,
+		ctx: ExtensionContext,
+	): Promise<void> => {
+		const state = sessionState(ctx);
+		if (!state.idleCompactDue) return;
+		state.idleCompactDue = false;
+		// A compaction already in flight makes the idle-due one moot;
+		// session_before_compact cleared the flag for it.
+		if (state.compactPending) return;
+		const config = await settings.getConfig(ctx);
+		if (!config.enabled || !config.apiKey || !supportsRoute(settings)) return;
+		if (ctx.hasUI)
+			ctx.ui.notify("Compacting with Relace before next turn…", "info");
+		// Pi awaits before_agent_start handlers before starting the agent
+		// loop, so the new turn runs on the compacted context.
+		await requestCompact(ctx, true);
 	};
 
 	const status = async (ctx: ExtensionCommandContext): Promise<void> => {
@@ -331,7 +370,7 @@ export default function relaceCompactExtension(pi: ExtensionAPI): void {
 			`Enabled: ${config.enabled ? "yes" : "no"}`,
 			`API key: ${config.apiKey ? "configured" : `missing (create at ${RELACE_KEYS_URL})`}`,
 			`Route: ${route}`,
-			`Idle: ${idleSeconds}s`,
+			`Idle: ${idleSeconds === 0 ? "disabled" : `${idleSeconds}s (${config.idleMode})`}`,
 			`Target: ${config.targetPercent}% (${targetTokensForModel(config, ctx.model).toLocaleString()} tokens)`,
 			`Context: ${usage?.tokens?.toLocaleString() ?? "unknown"} / ${usage?.contextWindow.toLocaleString() ?? "unknown"}`,
 			`Session compactions: ${state.compactions}`,
@@ -385,6 +424,7 @@ export default function relaceCompactExtension(pi: ExtensionAPI): void {
 	pi.on("session_before_compact", onBeforeCompact);
 	pi.on("context", onContext);
 	pi.on("agent_end", onAgentEnd);
+	pi.on("before_agent_start", onBeforeAgentStart);
 	pi.on("session_shutdown", (_event, ctx) => {
 		const sessionId = ctx.sessionManager.getSessionId();
 		const state = sessions.get(sessionId);
@@ -404,7 +444,10 @@ export default function relaceCompactExtension(pi: ExtensionAPI): void {
 			if (cmd === "status") await status(ctx);
 			else if (cmd === "disable") {
 				await settings.setEnabled(ctx.cwd, false);
-				for (const state of sessions.values()) clearTimer(state);
+				for (const state of sessions.values()) {
+					clearTimer(state);
+					state.idleCompactDue = false;
+				}
 				commandOutput(ctx, "Relace Compact disabled.", "info");
 			} else if (cmd === "enable") {
 				await settings.setEnabled(ctx.cwd, true);
@@ -413,6 +456,7 @@ export default function relaceCompactExtension(pi: ExtensionAPI): void {
 				const state = sessionState(ctx);
 				state.replacement = undefined;
 				state.compactions = 0;
+				state.idleCompactDue = false;
 				commandOutput(ctx, "Relace session state cleared.", "info");
 			} else if (cmd === "compact") await compact(ctx);
 			else if (cmd === "target" || cmd === "set-target") {

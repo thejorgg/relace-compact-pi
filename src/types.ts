@@ -4,6 +4,7 @@ import type { ContextEvent } from "@earendil-works/pi-coding-agent";
 export type AgentMessage = ContextEvent["messages"][number];
 
 export type HostKind = "omp" | "pi";
+export type IdleMode = "backgroundAuto" | "beforeNextTurn";
 export type PiThresholdType = "percentage" | "tokens";
 export type NoticeLevel = "info" | "warning" | "error";
 export type SettingsRecord = Record<string, unknown>;
@@ -24,6 +25,7 @@ export interface RelaceConfig {
 	endpoint: string;
 	targetPercent: number;
 	idleTimeoutSeconds: number;
+	idleMode: IdleMode;
 	idleModelOverrides: ReadonlyArray<readonly [string, number]>;
 	piThresholdType: PiThresholdType;
 	piThreshold: number;
@@ -33,6 +35,7 @@ export interface SessionState {
 	replacement: Message[] | undefined;
 	compactions: number;
 	idleTimer: ReturnType<typeof setTimeout> | undefined;
+	idleCompactDue: boolean;
 	compactPending: boolean;
 }
 

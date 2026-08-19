@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { buildConfig } from "../src/settings.js";
 
 /**
  * Deterministic behavior tests for public `ompPluginsDir()` and
@@ -85,6 +86,34 @@ function writeJson(filePath: string, value: unknown): void {
 	fs.mkdirSync(path.dirname(filePath), { recursive: true });
 	fs.writeFileSync(filePath, JSON.stringify(value), "utf8");
 }
+
+describe("buildConfig — relace.idleMode", () => {
+	test("defaults to beforeNextTurn", () => {
+		expect(buildConfig({}, undefined).idleMode).toBe("beforeNextTurn");
+	});
+
+	test("honors backgroundAuto", () => {
+		expect(
+			buildConfig({ "relace.idleMode": "backgroundAuto" }, undefined).idleMode,
+		).toBe("backgroundAuto");
+	});
+
+	test("reads nested relace objects", () => {
+		expect(
+			buildConfig({ relace: { idleMode: "backgroundAuto" } }, undefined)
+				.idleMode,
+		).toBe("backgroundAuto");
+	});
+
+	test("invalid values fall back to beforeNextTurn", () => {
+		expect(
+			buildConfig({ "relace.idleMode": "whenever" }, undefined).idleMode,
+		).toBe("beforeNextTurn");
+		expect(buildConfig({ "relace.idleMode": 1 }, undefined).idleMode).toBe(
+			"beforeNextTurn",
+		);
+	});
+});
 
 describe("ompPluginsDir — XDG and legacy resolution", () => {
 	test("without XDG_DATA_HOME, plugin root is <home>/.omp/plugins", () => {

@@ -84,6 +84,7 @@ compaction:
 For the idle model overrides, use the following:
 ```bash
 omp plugin config set relace-compact-pi relace.idleModelOverrides "{\"openai/gpt*\":1800,\"openai-codex/gpt*\":1800,\"anthropic/claude*\":300}"
+omp plugin config set relace-compact-pi relace.idleMode beforeNextTurn
 ```
 
 Alternatively, use the JSON:
@@ -141,6 +142,7 @@ Pi-agent reads global settings from `$HOME/.pi/agent/settings.json` (or `$PI_COD
     "endpoint": "https://models.relace.ai/v1/code/compact",
     "targetPercent": 33,
     "idleTimeoutSeconds": 600,
+    "idleMode": "beforeNextTurn",
     "idleModelOverrides": "{\"openai/gpt*\":1800,\"anthropic/claude*\":300}",
     "pi": {
       "thresholdType": "percentage",
@@ -159,6 +161,7 @@ Pi-agent reads global settings from `$HOME/.pi/agent/settings.json` (or `$PI_COD
 | `relace.endpoint` | production endpoint | Relace Compact endpoint. |
 | `relace.targetPercent` | `33` | Target percentage of the active model context. |
 | `relace.idleTimeoutSeconds` | `600` | Global idle compaction delay; `0` disables it. |
+| `relace.idleMode` | `beforeNextTurn` | When idle compaction runs. `beforeNextTurn` waits until you actually submit your next message and compacts right before that turn starts; `backgroundAuto` compacts in the background as soon as the idle timer fires. |
 | `relace.idleModelOverrides` | `{}` | JSON string mapping model globs to idle seconds. |
 | `relace.pi.thresholdType` | `percentage` | Pi threshold interpretation: `percentage` or `tokens`. |
 | `relace.pi.threshold` | `66` | Pi compaction threshold. |
@@ -170,6 +173,12 @@ Model override examples:
 ```
 
 A pattern containing `/` matches `provider/model`; a pattern without `/` matches the model ID. `*` is the wildcard.
+
+### Idle compaction timing
+
+With the default `relace.idleMode: "beforeNextTurn"`, the idle timer only marks the session as due for compaction. The Relace compaction then runs right before your **next** message is processed — so if you stop to read the output and never send another message, no compaction tokens are spent. It still respects the idle timeout: if you keep working without pausing long enough, nothing is marked due and no compaction is triggered.
+
+Set `"idleMode": "backgroundAuto"` to restore the old behavior and compact in the background as soon as the idle timer fires.
 
 ## Commands 💬
 
