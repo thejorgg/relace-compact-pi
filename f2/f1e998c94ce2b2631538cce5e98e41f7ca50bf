@@ -1,0 +1,19 @@
+package.json
+  s_89602d5968ae77::t_36ef48eff0bdd9 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "f2f1e998c94ce2b2631538cce5e98e41f7ca50bf",
+  "prompts": {},
+  "sessions": {
+    "s_89602d5968ae77": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a019ee-2a58-7cd3-a10d-70c80706b99a",
+        "model": "glm-5.3"
+      },
+      "human_author": "Jorge G <the@jor.gg>"
+    }
+  }
+}
