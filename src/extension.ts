@@ -10,13 +10,12 @@ import type {
 
 import {
 	callRelace,
-	RELACE_KEYS_URL,
 	RELACE_LOGIN_URL,
 	summaryFromRelace,
 	targetTokensForModel,
 	toAgentMessages,
 } from "./api.js";
-import { findOmpSettings, SettingsStore } from "./settings.js";
+import { findOmpSettings, ompRoutingError, SettingsStore } from "./settings.js";
 import type {
 	AgentMessage,
 	CompactCallbacks,
@@ -39,6 +38,12 @@ function idleTimeoutForModel(
 			return seconds;
 	}
 	return config.idleTimeoutSeconds;
+}
+
+export function formatContextUsage(
+	usage: { tokens?: number | null; contextWindow?: number | null } | undefined,
+): string {
+	return `${usage?.tokens?.toLocaleString() ?? "unknown"} / ${usage?.contextWindow?.toLocaleString() ?? "unknown"}`;
 }
 
 function parseTarget(val: string): number | undefined {
@@ -90,7 +95,7 @@ function piThresholdTokens(
 }
 
 function supportsRoute(settings: SettingsStore): boolean {
-	return settings.host === "pi" || settings.getOmpStrategy() !== undefined;
+	return settings.host === "pi" || settings.getOmpStrategy() === "context-full";
 }
 
 function commandOutput(
@@ -361,18 +366,15 @@ export default function relaceCompactExtension(pi: ExtensionAPI): void {
 				? "all pi compactions → Relace"
 				: strategy === "context-full"
 					? "OMP full-context → Relace"
-					: strategy === "handoff"
-						? "OMP handoff compact hook → Relace"
-						: "OMP native (Relace routing inactive)";
+					: `OMP ${strategy ?? "unknown"} (Relace routing inactive)`;
 		const lines = [
 			`API key: ${config.apiKey ? "configured" : `missing (log in at ${RELACE_LOGIN_URL})`}`,
 			`Host: ${settings.host === "omp" ? "OMP" : "pi-agent"}`,
 			`Enabled: ${config.enabled ? "yes" : "no"}`,
-			`API key: ${config.apiKey ? "configured" : `missing (create at ${RELACE_KEYS_URL})`}`,
 			`Route: ${route}`,
 			`Idle: ${idleSeconds === 0 ? "disabled" : `${idleSeconds}s (${config.idleMode})`}`,
 			`Target: ${config.targetPercent}% (${targetTokensForModel(config, ctx.model).toLocaleString()} tokens)`,
-			`Context: ${usage?.tokens?.toLocaleString() ?? "unknown"} / ${usage?.contextWindow.toLocaleString() ?? "unknown"}`,
+			`Context: ${formatContextUsage(usage)}`,
 			`Session compactions: ${state.compactions}`,
 		];
 		if (settings.host === "pi") {
@@ -383,10 +385,9 @@ export default function relaceCompactExtension(pi: ExtensionAPI): void {
 					: `${Math.round(config.piThreshold).toLocaleString()} tokens`;
 			lines.splice(6, 0, `Pi trigger: ${trigger}`);
 		}
-		if (settings.host === "omp" && strategy === undefined) {
-			lines.push(
-				"Notice: change Compaction Strategy to context-full to use Relace.",
-			);
+		if (settings.host === "omp") {
+			const routingError = ompRoutingError(strategy);
+			if (routingError) lines.push(`Error: ${routingError}`);
 		}
 		commandOutput(ctx, lines.join("\n"), "info");
 	};
@@ -404,8 +405,9 @@ export default function relaceCompactExtension(pi: ExtensionAPI): void {
 		if (!supportsRoute(settings)) {
 			commandOutput(
 				ctx,
-				"Relace routing is inactive for the current OMP compaction strategy.",
-				"warning",
+				ompRoutingError(settings.getOmpStrategy()) ??
+					"Relace routing is inactive for the current OMP compaction strategy.",
+				"error",
 			);
 			return;
 		}

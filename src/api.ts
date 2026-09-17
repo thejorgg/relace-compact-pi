@@ -84,7 +84,8 @@ export function contentText(content: string | unknown[]): string {
 				if (typeof block.text === "string") return block.text;
 				if (typeof block.thinking === "string") return block.thinking;
 			}
-			return JSON.stringify(block);
+			const serialized = JSON.stringify(block);
+			return typeof serialized === "string" ? serialized : "";
 		})
 		.filter((text) => text.length > 0)
 		.join("\n");

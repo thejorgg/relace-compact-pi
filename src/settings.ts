@@ -27,6 +27,23 @@ export const DEFAULT_IDLE_MODE: IdleMode = "beforeNextTurn";
 export const DEFAULT_TARGET_PERCENT = 33;
 export const DEFAULT_PI_THRESHOLD = 66;
 
+export type OmpCompactionStrategy =
+	| "context-full"
+	| "remote"
+	| "handoff"
+	| "soft"
+	| "shake"
+	| "snapcompact"
+	| "off";
+
+export function ompRoutingError(
+	strategy: OmpCompactionStrategy | undefined,
+): string | undefined {
+	if (strategy === "context-full") return undefined;
+	const current = strategy ?? "unset";
+	return `Relace Compact requires OMP's Compaction Method Order to start with "Soft compaction" (the OMP 18 equivalent of "context-full"). Current first method: ${current}. Move Soft compaction to the top in Settings → Context → Compaction Method Order, then retry.`;
+}
+
 export function endpointSetting(value: unknown): string {
 	if (typeof value !== "string" || value.length === 0) return RELACE_ENDPOINT;
 	try {
@@ -324,9 +341,18 @@ export class SettingsStore {
 		return this.#cachedConfig;
 	}
 
-	getOmpStrategy(): "context-full" | "handoff" | undefined {
-		const value = this.#ompSettings?.get("compaction.strategy");
-		return value === "context-full" || value === "handoff" ? value : undefined;
+	getOmpStrategy(): OmpCompactionStrategy | undefined {
+		const value = this.#ompSettings?.get("compaction.methodOrder");
+		if (!Array.isArray(value)) return undefined;
+		const first = value[0];
+		// OMP 18 calls the context-full summarizer "soft" in methodOrder.
+		if (first === "soft") return "context-full";
+		return first === "remote" ||
+			first === "handoff" ||
+			first === "shake" ||
+			first === "snapcompact"
+			? first
+			: undefined;
 	}
 
 	async setEnabled(cwd: string, enabled: boolean): Promise<void> {

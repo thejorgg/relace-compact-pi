@@ -3,7 +3,13 @@ import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { buildConfig } from "../src/settings.js";
+import { contentText } from "../src/api.js";
+import { formatContextUsage } from "../src/extension.js";
+import {
+	buildConfig,
+	ompRoutingError,
+	SettingsStore,
+} from "../src/settings.js";
 
 /**
  * Deterministic behavior tests for public `ompPluginsDir()` and
@@ -86,6 +92,45 @@ function writeJson(filePath: string, value: unknown): void {
 	fs.mkdirSync(path.dirname(filePath), { recursive: true });
 	fs.writeFileSync(filePath, JSON.stringify(value), "utf8");
 }
+
+describe("status formatting", () => {
+	test("handles OMP usage without a context window", () => {
+		expect(formatContextUsage({ tokens: 1234 })).toBe("1,234 / unknown");
+	});
+});
+
+describe("contentText", () => {
+	test("ignores undefined content blocks instead of throwing", () => {
+		expect(() => contentText([undefined])).not.toThrow();
+		expect(contentText([undefined])).toBe("");
+	});
+});
+
+describe("OMP compaction routing", () => {
+	test("uses OMP methodOrder without reading the removed strategy setting", () => {
+		const settings = new SettingsStore("omp", {
+			get: (key) => {
+				if (key === "compaction.strategy")
+					throw new Error("unknown setting should not be read");
+				return key === "compaction.methodOrder" ? ["handoff"] : undefined;
+			},
+		});
+
+		expect(settings.getOmpStrategy()).toBe("handoff");
+		expect(ompRoutingError(settings.getOmpStrategy())).toContain(
+			'Compaction Method Order to start with "Soft compaction"',
+		);
+	});
+
+	test("maps OMP 18 soft compaction to context-full", () => {
+		const settings = new SettingsStore("omp", {
+			get: (key) => (key === "compaction.methodOrder" ? ["soft"] : undefined),
+		});
+
+		expect(settings.getOmpStrategy()).toBe("context-full");
+		expect(ompRoutingError(settings.getOmpStrategy())).toBeUndefined();
+	});
+});
 
 describe("buildConfig — relace.idleMode", () => {
 	test("defaults to beforeNextTurn", () => {

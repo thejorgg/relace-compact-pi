@@ -63,23 +63,25 @@ You can just run:
 
 inside pi or omp
 
-## Configure OMP (context-full only) 🧩
+## Configure OMP (soft compaction only) 🧩
 
-OMP's automatic `handoff`, `snapcompact`, `shake`, and `off` strategies are not replaced. Select **Context-full** in OMP's compaction settings.
+Relace replaces OMP's summarizing compaction path. In OMP 18, that path is named **Soft compaction**; older OMP versions called it **Context-full**. Other methods such as `remote`, `handoff`, `snapcompact`, and `shake` are not Relace-routed.
 
-### 1. Set the Compaction Strategy and Idle Settings
+### 1. Set the Compaction Method Order and Idle Settings
 
-Edit your global configuration (`~/.omp/agent/config.yml`) or your project-local configuration (`.omp/config.yml`) under the `compaction:` block. The plugin automatically respects your native OMP idle settings (`idleEnabled` and `idleTimeoutSeconds`):
+In OMP, open **Settings → Context → Compaction Method Order** and move **Soft compaction** to the top. Equivalently, edit your global configuration (`~/.omp/agent/config.yml`) or project-local configuration (`.omp/config.yml`) under the `compaction:` block:
 
 ```yaml
 compaction:
-  strategy: context-full
+  methodOrder:
+    - soft
+    - remote
   idleEnabled: true
   idleTimeoutSeconds: 1800
 ```
 
 > [!IMPORTANT]
-> Compaction Strategy must be `context-full` for Relace routing to be active in OMP. The command `/compact-relace status` will show a notice when OMP is not set to `context-full`.
+> The first method must be `soft` for Relace routing to be active in OMP 18. `/compact-relace status` reports the current first method and the exact setting to change.
 
 For the idle model overrides, use the following:
 ```bash
