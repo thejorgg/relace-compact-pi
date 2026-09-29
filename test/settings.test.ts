@@ -108,7 +108,16 @@ describe("contentText", () => {
 });
 
 describe("OMP settings lifecycle", () => {
-	test("registers before Settings.init and uses OMP settings after initialization", () => {
+	test.each([
+		{ idle: false, timeout: 1800, expected: "Idle: disabled" },
+		{ idle: true, timeout: 1800, expected: "Idle: 1800s (beforeNextTurn)" },
+		{ idle: true, timeout: undefined, expected: "Idle: 300s (beforeNextTurn)" },
+		{ idle: undefined, timeout: undefined, expected: "Idle: disabled" },
+	])("reads runtime settings after initialization: %j", ({
+		idle,
+		timeout,
+		expected,
+	}) => {
 		const home = makeTempDir("relace-settings-lifecycle-");
 		const extension = path.resolve(import.meta.dir, "../src/extension.ts");
 		const output = runChild(
@@ -119,9 +128,11 @@ const settings = new Proxy({}, {
 	get(_target, key) {
 		if (!initialized)
 			throw new Error("Settings not initialized. Call Settings.init() first.");
-		if (key === "get") return (name) => {
+		if (key === "rawValue") return ({ segments }) => {
+			const name = segments.join(".");
 			if (name === "compaction.methodOrder") return ["soft"];
-			if (name === "compaction.idleEnabled") return false;
+			if (name === "compaction.idleEnabled") return ${JSON.stringify(idle)};
+			if (name === "compaction.idleTimeoutSeconds") return ${JSON.stringify(timeout)};
 		};
 	},
 });
@@ -145,14 +156,15 @@ await command.handler("status", {
 		);
 		expect(output).toContain("Host: OMP");
 		expect(output).toContain("Route: OMP full-context → Relace");
-		expect(output).toContain("Idle: disabled");
+		expect(output).toContain(expected);
 	});
 });
 
 describe("OMP compaction routing", () => {
 	test("uses OMP methodOrder without reading the removed strategy setting", () => {
 		const settings = new SettingsStore("omp", {
-			get: (key) => {
+			rawValue: ({ segments }) => {
+				const key = segments.join(".");
 				if (key === "compaction.strategy")
 					throw new Error("unknown setting should not be read");
 				return key === "compaction.methodOrder" ? ["handoff"] : undefined;
@@ -167,11 +179,17 @@ describe("OMP compaction routing", () => {
 
 	test("maps OMP 18 soft compaction to context-full", () => {
 		const settings = new SettingsStore("omp", {
-			get: (key) => (key === "compaction.methodOrder" ? ["soft"] : undefined),
+			rawValue: ({ segments }) =>
+				segments.join(".") === "compaction.methodOrder" ? ["soft"] : undefined,
 		});
 
 		expect(settings.getOmpStrategy()).toBe("context-full");
 		expect(ompRoutingError(settings.getOmpStrategy())).toBeUndefined();
+	});
+
+	test("reports the native remote default when methodOrder is unset", () => {
+		const settings = new SettingsStore("omp", { rawValue: () => undefined });
+		expect(settings.getOmpStrategy()).toBe("remote");
 	});
 });
 

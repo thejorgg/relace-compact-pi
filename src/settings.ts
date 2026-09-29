@@ -27,6 +27,23 @@ export const DEFAULT_IDLE_MODE: IdleMode = "beforeNextTurn";
 export const DEFAULT_TARGET_PERCENT = 33;
 export const DEFAULT_PI_THRESHOLD = 66;
 
+// OMP 18.4 reads configured layers through rawValue(handle), not get(key).
+// These three settings are not path-scoped and have no environment overrides.
+// Keep descriptors static; the host registry is not exported through pi.pi.
+const OMP_IDLE_ENABLED = {
+	segments: ["compaction", "idleEnabled"],
+	definition: {},
+} as const;
+const OMP_IDLE_TIMEOUT = {
+	segments: ["compaction", "idleTimeoutSeconds"],
+	definition: {},
+} as const;
+const OMP_METHOD_ORDER = {
+	segments: ["compaction", "methodOrder"],
+	definition: {},
+} as const;
+const OMP_DEFAULT_METHOD_ORDER = ["remote"] as const;
+
 export type OmpCompactionStrategy =
 	| "context-full"
 	| "remote"
@@ -311,21 +328,15 @@ export class SettingsStore {
 		if (this.host === "omp") {
 			values = getOmpPluginSettings(PACKAGE_NAME, ctx.cwd);
 			if (this.#ompSettings) {
-				const ompIdleEnabled = this.#ompSettings.get("compaction.idleEnabled");
-				const ompIdleTimeout = this.#ompSettings.get(
-					"compaction.idleTimeoutSeconds",
-				);
-				if (ompIdleEnabled !== undefined) {
-					const idleSeconds =
-						ompIdleEnabled === true
-							? typeof ompIdleTimeout === "number"
-								? ompIdleTimeout
-								: DEFAULT_IDLE_SECONDS
-							: 0;
-					setPathValue(values, "relace.idleTimeoutSeconds", idleSeconds);
-				} else if (typeof ompIdleTimeout === "number") {
-					setPathValue(values, "relace.idleTimeoutSeconds", ompIdleTimeout);
-				}
+				const ompIdleEnabled =
+					this.#ompSettings.rawValue(OMP_IDLE_ENABLED) ?? false;
+				const ompIdleTimeout =
+					this.#ompSettings.rawValue(OMP_IDLE_TIMEOUT) ?? 300;
+				const idleSeconds =
+					ompIdleEnabled === true && typeof ompIdleTimeout === "number"
+						? ompIdleTimeout
+						: 0;
+				setPathValue(values, "relace.idleTimeoutSeconds", idleSeconds);
 			}
 		} else {
 			const agentDir =
@@ -343,7 +354,9 @@ export class SettingsStore {
 	}
 
 	getOmpStrategy(): OmpCompactionStrategy | undefined {
-		const value = this.#ompSettings?.get("compaction.methodOrder");
+		if (!this.#ompSettings) return undefined;
+		const value =
+			this.#ompSettings.rawValue(OMP_METHOD_ORDER) ?? OMP_DEFAULT_METHOD_ORDER;
 		if (!Array.isArray(value)) return undefined;
 		const first = value[0];
 		// OMP 18 calls the context-full summarizer "soft" in methodOrder.

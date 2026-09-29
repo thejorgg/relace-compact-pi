@@ -35,6 +35,12 @@ Version 0.2.2 fixes installation in OMP versions that validate extensions before
 initializing settings. Registration no longer accesses the settings proxy's
 methods; OMP settings are read when runtime handlers execute.
 
+OMP 18.4 uses registry-backed settings instead of `Settings.get()`. The extension
+reads the effective configured layers through `rawValue()` at runtime, including
+project and runtime overrides. Unset native settings use OMP's defaults: idle
+compaction disabled, a 300-second delay when enabled, and `remote` first in the
+compaction order. Move `soft` first to enable Relace routing.
+
 ### Update
 
 ```bash

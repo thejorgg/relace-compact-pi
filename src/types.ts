@@ -10,7 +10,10 @@ export type NoticeLevel = "info" | "warning" | "error";
 export type SettingsRecord = Record<string, unknown>;
 
 export interface DynamicSettings {
-	get(key: string): unknown;
+	rawValue(setting: {
+		readonly segments: readonly string[];
+		readonly definition: Readonly<Record<string, never>>;
+	}): unknown;
 }
 
 export interface RelaceMessage {
