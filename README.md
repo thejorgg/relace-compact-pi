@@ -31,6 +31,10 @@ pi install npm:relace-compact-pi
 omp plugin install npm:relace-compact-pi
 ```
 
+Version 0.2.2 fixes installation in OMP versions that validate extensions before
+initializing settings. Registration no longer accesses the settings proxy's
+methods; OMP settings are read when runtime handlers execute.
+
 ### Update
 
 ```bash

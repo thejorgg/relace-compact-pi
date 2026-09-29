@@ -84,6 +84,7 @@ process.stdout.write(ompPluginsDir());
 			PI_CONFIG_DIR: env.PI_CONFIG_DIR,
 			XDG_DATA_HOME: env.XDG_DATA_HOME,
 			HOME: env.HOME,
+			USERPROFILE: env.HOME,
 			PATH: process.env.PATH ?? "",
 		},
 		encoding: "utf8",

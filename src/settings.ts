@@ -124,8 +124,9 @@ export function buildConfig(
 export function findOmpSettings(pi: unknown): DynamicSettings | undefined {
 	if (!isRecord(pi) || !isRecord(pi.pi)) return undefined;
 	const candidate = pi.pi.settings;
-	if (!isRecord(candidate) || typeof candidate.get !== "function")
-		return undefined;
+	// OMP's installer registers extensions before Settings.init(). Its settings
+	// proxy throws on method access until then; only runtime handlers may read it.
+	if (!isRecord(candidate)) return undefined;
 	return candidate as unknown as DynamicSettings;
 }
 

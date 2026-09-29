@@ -56,6 +56,7 @@ function runChild(script: string, env: ChildEnv, cwd?: string): string {
 			PI_CONFIG_DIR: env.PI_CONFIG_DIR,
 			XDG_DATA_HOME: env.XDG_DATA_HOME,
 			HOME: env.HOME,
+			USERPROFILE: env.HOME,
 			PATH: process.env.PATH ?? "",
 		},
 		encoding: "utf8",
@@ -103,6 +104,48 @@ describe("contentText", () => {
 	test("ignores undefined content blocks instead of throwing", () => {
 		expect(() => contentText([undefined])).not.toThrow();
 		expect(contentText([undefined])).toBe("");
+	});
+});
+
+describe("OMP settings lifecycle", () => {
+	test("registers before Settings.init and uses OMP settings after initialization", () => {
+		const home = makeTempDir("relace-settings-lifecycle-");
+		const extension = path.resolve(import.meta.dir, "../src/extension.ts");
+		const output = runChild(
+			`
+import extension from ${JSON.stringify(extension)};
+let initialized = false;
+const settings = new Proxy({}, {
+	get(_target, key) {
+		if (!initialized)
+			throw new Error("Settings not initialized. Call Settings.init() first.");
+		if (key === "get") return (name) => {
+			if (name === "compaction.methodOrder") return ["soft"];
+			if (name === "compaction.idleEnabled") return false;
+		};
+	},
+});
+let command;
+extension({
+	pi: { settings },
+	on() {},
+	registerCommand(_name, definition) { command = definition; },
+});
+initialized = true;
+await command.handler("status", {
+	cwd: ${JSON.stringify(home)},
+	hasUI: true,
+	sessionManager: { getSessionId: () => "lifecycle-test" },
+	getContextUsage: () => ({ tokens: 1234, contextWindow: 200000 }),
+	ui: { notify: (text) => process.stdout.write(text) },
+});
+`,
+			{ HOME: home, PI_CONFIG_DIR: ".omp" },
+			home,
+		);
+		expect(output).toContain("Host: OMP");
+		expect(output).toContain("Route: OMP full-context → Relace");
+		expect(output).toContain("Idle: disabled");
 	});
 });
 
